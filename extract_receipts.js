@@ -113,6 +113,28 @@
                         <div style="font-size: 12px; color: #666; margin-top: 4px;">Failed</div>
                     </div>
                 </div>
+                <div style="margin-bottom: 20px;" id="deliveroo-folder-section">
+                    <div style="font-size: 14px; color: #666; margin-bottom: 8px;">Save Location</div>
+                    <div id="deliveroo-folder-status" style="
+                        font-size: 14px;
+                        color: #333;
+                        padding: 12px;
+                        background: #fff3cd;
+                        border-radius: 8px;
+                        margin-bottom: 8px;
+                    ">⚠️ Please select a folder</div>
+                    <button id="deliveroo-select-folder" style="
+                        width: 100%;
+                        padding: 12px;
+                        background: linear-gradient(135deg, #00ccbc 0%, #00a896 100%);
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        font-size: 14px;
+                        font-weight: 600;
+                        cursor: pointer;
+                    ">📁 Select Folder</button>
+                </div>
                 <div>
                     <div style="font-size: 14px; color: #666; margin-bottom: 8px;">Downloaded Files</div>
                     <div id="deliveroo-file-list" style="
@@ -126,6 +148,19 @@
                             No files downloaded yet
                         </div>
                     </div>
+                </div>
+                <div id="deliveroo-email-section" style="display: none; margin-top: 20px;">
+                    <button id="deliveroo-email-btn" style="
+                        width: 100%;
+                        padding: 12px;
+                        background: linear-gradient(135deg, #00ccbc 0%, #00a896 100%);
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        font-size: 14px;
+                        font-weight: 600;
+                        cursor: pointer;
+                    ">📧 Open Email Client</button>
                 </div>
             </div>
         </div>
@@ -168,19 +203,85 @@
         uiContainer.style.display = 'none';
     };
     
-    // Helper function to trigger file download
-    function downloadFile(blob, filename) {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+    // File System Access API support check
+    const hasFileSystemAccess = 'showDirectoryPicker' in window;
+    let directoryHandle = null;
+    let selectedFolderPath = null;
+    
+    // Folder selection handler
+    const selectFolderBtn = document.getElementById('deliveroo-select-folder');
+    const folderStatus = document.getElementById('deliveroo-folder-status');
+    
+    async function selectFolder() {
+        if (!hasFileSystemAccess) {
+            folderStatus.innerHTML = '⚠️ Your browser doesn\'t support folder selection. Files will download to default folder.';
+            folderStatus.style.background = '#fff3cd';
+            selectFolderBtn.style.display = 'none';
+            return;
+        }
+        
+        try {
+            directoryHandle = await window.showDirectoryPicker({
+                mode: 'readwrite'
+            });
+            
+            // Get folder name
+            selectedFolderPath = directoryHandle.name;
+            folderStatus.innerHTML = `✅ Selected: <strong>${selectedFolderPath}</strong>`;
+            folderStatus.style.background = '#e8f5e9';
+            selectFolderBtn.textContent = '📁 Change Folder';
+            
+            console.log(`📁 Selected folder: ${selectedFolderPath}`);
+        } catch (error) {
+            if (error.name !== 'AbortError') {
+                console.error('Error selecting folder:', error);
+                folderStatus.innerHTML = '❌ Failed to select folder. Using default downloads.';
+                folderStatus.style.background = '#ffebee';
+            }
+        }
     }
     
-    // Find all order links - use /orders/ pattern (not /en/orders/)
+    // Wrap download logic in a function so it can be called after folder selection
+    async function startDownloads() {
+        // Disable folder button during downloads
+        selectFolderBtn.disabled = true;
+        selectFolderBtn.style.opacity = '0.5';
+        selectFolderBtn.style.cursor = 'not-allowed';
+        
+        // Helper function to save file (uses File System API if available, otherwise falls back)
+    async function saveFile(blob, filename) {
+        if (directoryHandle && hasFileSystemAccess) {
+            try {
+                // Save to selected folder using File System Access API
+                const fileHandle = await directoryHandle.getFileHandle(filename, { create: true });
+                const writable = await fileHandle.createWritable();
+                await writable.write(blob);
+                await writable.close();
+                console.log(`✅ Saved to folder: ${filename}`);
+            } catch (error) {
+                console.error('Error saving to folder:', error);
+                // Fallback to download
+                fallbackDownload(blob, filename);
+            }
+        } else {
+            // Fallback to regular download
+            fallbackDownload(blob, filename);
+        }
+    }
+    
+        // Fallback download function
+        function fallbackDownload(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        // Find all order links - use /orders/ pattern (not /en/orders/)
     const orderLinks = Array.from(document.querySelectorAll('a[href*="/orders/"]'))
         .map(link => {
             const href = link.getAttribute('href');
@@ -190,33 +291,33 @@
         })
         .filter((url, index, self) => self.indexOf(url) === index);
     
-    // Extract order IDs
-    const orderIds = orderLinks
-        .map(url => url.match(/\/orders\/(\d+)/)?.[1])
-        .filter(Boolean)
-        .filter((id, index, self) => self.indexOf(id) === index); // Remove duplicates
+        // Extract order IDs
+        const orderIds = orderLinks
+            .map(url => url.match(/\/orders\/(\d+)/)?.[1])
+            .filter(Boolean)
+            .filter((id, index, self) => self.indexOf(id) === index); // Remove duplicates
+        
+        console.log(`📋 Found ${orderIds.length} unique orders`);
+        
+        if (orderIds.length === 0) {
+            console.warn('⚠️  No order IDs found. Make sure you are on the orders page and logged in.');
+            return;
+        }
+        
+        const downloadedFiles = [];
+        const failedOrders = [];
+        
+        // Initialize UI
+        updateProgress(0, orderIds.length);
+        updateCurrentOrder('', 'processing');
+        updateCounts(0, 0);
     
-    console.log(`📋 Found ${orderIds.length} unique orders`);
-    
-    if (orderIds.length === 0) {
-        console.warn('⚠️  No order IDs found. Make sure you are on the orders page and logged in.');
-        return;
-    }
-    
-    const downloadedFiles = [];
-    const failedOrders = [];
-    
-    // Initialize UI
-    updateProgress(0, orderIds.length);
-    updateCurrentOrder('', 'processing');
-    updateCounts(0, 0);
-    
-    // Process each order ID
-    for (let i = 0; i < orderIds.length; i++) {
+        // Process each order ID
+        for (let i = 0; i < orderIds.length; i++) {
         const orderId = orderIds[i];
         console.log(`📦 Processing order ${i + 1}/${orderIds.length}: ${orderId}`);
         updateCurrentOrder(orderId, 'processing');
-        updateProgress(i, orderIds.length);
+        updateProgress(downloadedFiles.length + failedOrders.length, orderIds.length);
         
         try {
             // Construct receipt URL directly from order ID
@@ -254,12 +355,13 @@
                             blob.type && blob.type.includes('pdf') ||
                             blob.size > 0) {
                             const filename = `deliveroo_receipt_${orderId}.pdf`;
-                            downloadFile(blob, filename);
+                            await saveFile(blob, filename);
                             downloadedFiles.push({ orderId, filename, url: pdfUrl });
                             console.log(`✅ Downloaded: ${filename}`);
                             updateCurrentOrder(orderId, 'success');
                             addFileToList(filename, orderId);
                             updateCounts(downloadedFiles.length, failedOrders.length);
+                            updateProgress(downloadedFiles.length + failedOrders.length, orderIds.length);
                             success = true;
                             break;
                         }
@@ -288,12 +390,13 @@
                             if (contentType && contentType.includes('application/pdf')) {
                                 const blob = await receiptResponse.blob();
                                 const filename = `deliveroo_receipt_${orderId}.pdf`;
-                                downloadFile(blob, filename);
+                                await saveFile(blob, filename);
                                 downloadedFiles.push({ orderId, filename, url: receiptUrl });
                                 console.log(`✅ Downloaded: ${filename}`);
                                 updateCurrentOrder(orderId, 'success');
                                 addFileToList(filename, orderId);
                                 updateCounts(downloadedFiles.length, failedOrders.length);
+                                updateProgress(downloadedFiles.length + failedOrders.length, orderIds.length);
                                 success = true;
                                 break;
                             } else {
@@ -319,12 +422,13 @@
                                     if (pdfResponse.ok) {
                                         const blob = await pdfResponse.blob();
                                         const filename = `deliveroo_receipt_${orderId}.pdf`;
-                                        downloadFile(blob, filename);
+                                        await saveFile(blob, filename);
                                         downloadedFiles.push({ orderId, filename, url: pdfUrl });
                                         console.log(`✅ Downloaded: ${filename}`);
                                         updateCurrentOrder(orderId, 'success');
                                         addFileToList(filename, orderId);
                                         updateCounts(downloadedFiles.length, failedOrders.length);
+                                        updateProgress(downloadedFiles.length + failedOrders.length, orderIds.length);
                                         success = true;
                                         break;
                                     }
@@ -344,12 +448,13 @@
                                         if (altResponse.ok) {
                                             const blob = await altResponse.blob();
                                             const filename = `deliveroo_receipt_${receiptId}.pdf`;
-                                            downloadFile(blob, filename);
+                                            await saveFile(blob, filename);
                                             downloadedFiles.push({ orderId, receiptId, filename, url: altPdfUrl });
                                             console.log(`✅ Downloaded: ${filename}`);
                                             updateCurrentOrder(orderId, 'success');
                                             addFileToList(filename, orderId);
                                             updateCounts(downloadedFiles.length, failedOrders.length);
+                                            updateProgress(downloadedFiles.length + failedOrders.length, orderIds.length);
                                             success = true;
                                             break;
                                         }
@@ -377,12 +482,18 @@
             failedOrders.push({ orderId, error: error.message });
             updateCurrentOrder(orderId, 'error');
             updateCounts(downloadedFiles.length, failedOrders.length);
+            updateProgress(downloadedFiles.length + failedOrders.length, orderIds.length);
         }
     }
     
     // Final update
-    updateProgress(orderIds.length, orderIds.length);
+    updateProgress(downloadedFiles.length + failedOrders.length, orderIds.length);
     updateCurrentOrder('', downloadedFiles.length > 0 ? 'success' : 'error');
+    
+    // Re-enable folder button after downloads complete
+    selectFolderBtn.disabled = false;
+    selectFolderBtn.style.opacity = '1';
+    selectFolderBtn.style.cursor = 'pointer';
     
     // Print results
     console.log('\n' + '='.repeat(60));
@@ -404,9 +515,66 @@
         });
     }
     
-    console.log('\n💡 Files saved to your browser\'s default download folder');
+    const saveLocation = directoryHandle ? `Selected folder: ${selectedFolderPath}` : 'Browser default download folder';
+    console.log(`\n💡 Files saved to: ${saveLocation}`);
     console.log('💡 Tip: Access download info via window.deliverooDownloads');
     
-    window.deliverooDownloads = downloadedFiles;
-    return downloadedFiles;
+    // Show email button if files were downloaded
+    if (downloadedFiles.length > 0) {
+        const emailSection = document.getElementById('deliveroo-email-section');
+        const emailBtn = document.getElementById('deliveroo-email-btn');
+        emailSection.style.display = 'block';
+        
+        emailBtn.onclick = function() {
+            const emailTo = 'yourbestfriend@example.com';
+            const subject = encodeURIComponent(`Deliveroo Receipts - ${downloadedFiles.length} PDF Files`);
+            
+            let body = `Dear,\n\nPlease find attached ${downloadedFiles.length} Deliveroo receipt PDF files:\n\n`;
+            downloadedFiles.forEach((file, index) => {
+                body += `${index + 1}. ${file.filename} (Order ID: ${file.orderId})\n`;
+            });
+            body += `\n\nAll files have been saved`;
+            if (directoryHandle && selectedFolderPath) {
+                body += ` to the folder: ${selectedFolderPath}`;
+            } else {
+                body += ` to your default download folder`;
+            }
+            body += `.\n\nPlease attach all PDF files from this location.\n\nBest regards`;
+            
+            const bodyEncoded = encodeURIComponent(body);
+            
+            // Use Gmail compose URL to open Gmail in browser
+            const gmailUrl = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(emailTo)}&su=${subject}&body=${bodyEncoded}`;
+            window.open(gmailUrl, '_blank');
+            
+            console.log('📧 Gmail compose opened');
+            if (directoryHandle && selectedFolderPath) {
+                console.log(`💡 Files are in folder: ${selectedFolderPath}`);
+            } else {
+                console.log('💡 Files are in your browser\'s default download folder');
+            }
+        };
+    }
+    
+        window.deliverooDownloads = downloadedFiles;
+        return downloadedFiles;
+    }
+    
+    // Handle folder selection and start downloads
+    selectFolderBtn.onclick = async function() {
+        await selectFolder();
+        if (!hasFileSystemAccess || directoryHandle) {
+            // Start downloads if File System API not available or folder selected
+            await startDownloads();
+        }
+    };
+    
+    // If File System API not available, start downloads immediately
+    if (!hasFileSystemAccess) {
+        await startDownloads();
+    } else {
+        // If File System API is available, wait for folder selection
+        folderStatus.innerHTML = '⏳ Please select a folder to save receipts...';
+        folderStatus.style.background = '#e3f2fd';
+    }
 })();
