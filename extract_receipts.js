@@ -134,6 +134,19 @@
                         font-weight: 600;
                         cursor: pointer;
                     ">📁 Select Folder</button>
+                    <button id="deliveroo-start-downloads" style="
+                        width: 100%;
+                        padding: 12px;
+                        background: linear-gradient(135deg, #00ccbc 0%, #00a896 100%);
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        font-size: 14px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        margin-top: 8px;
+                        display: none;
+                    ">🚀 Start Downloads</button>
                 </div>
                 <div>
                     <div style="font-size: 14px; color: #666; margin-bottom: 8px;">Downloaded Files</div>
@@ -231,6 +244,10 @@
             folderStatus.style.background = '#e8f5e9';
             selectFolderBtn.textContent = '📁 Change Folder';
             
+            // Show start button
+            const startBtn = document.getElementById('deliveroo-start-downloads');
+            startBtn.style.display = 'block';
+            
             console.log(`📁 Selected folder: ${selectedFolderPath}`);
         } catch (error) {
             if (error.name !== 'AbortError') {
@@ -243,7 +260,9 @@
     
     // Wrap download logic in a function so it can be called after folder selection
     async function startDownloads() {
-        // Disable folder button during downloads
+        // Hide start button and disable folder button during downloads
+        const startBtn = document.getElementById('deliveroo-start-downloads');
+        startBtn.style.display = 'none';
         selectFolderBtn.disabled = true;
         selectFolderBtn.style.opacity = '0.5';
         selectFolderBtn.style.cursor = 'not-allowed';
@@ -560,18 +579,23 @@
         return downloadedFiles;
     }
     
-    // Handle folder selection and start downloads
+    // Handle folder selection
     selectFolderBtn.onclick = async function() {
         await selectFolder();
-        if (!hasFileSystemAccess || directoryHandle) {
-            // Start downloads if File System API not available or folder selected
-            await startDownloads();
-        }
     };
     
-    // If File System API not available, start downloads immediately
-    if (!hasFileSystemAccess) {
+    // Handle start downloads button
+    const startBtn = document.getElementById('deliveroo-start-downloads');
+    startBtn.onclick = async function() {
         await startDownloads();
+    };
+    
+    // If File System API not available, show start button immediately
+    if (!hasFileSystemAccess) {
+        folderStatus.innerHTML = '⚠️ Browser doesn\'t support folder selection. Files will download to default folder.';
+        folderStatus.style.background = '#fff3cd';
+        startBtn.style.display = 'block';
+        startBtn.textContent = '🚀 Start Downloads';
     } else {
         // If File System API is available, wait for folder selection
         folderStatus.innerHTML = '⏳ Please select a folder to save receipts...';
