@@ -113,6 +113,29 @@
                         <div style="font-size: 12px; color: #666; margin-top: 4px;">Failed</div>
                     </div>
                 </div>
+                <div style="margin-bottom: 20px;" id="deliveroo-month-filter-section">
+                    <div style="font-size: 14px; color: #666; margin-bottom: 8px;">Filter by Month</div>
+                    <div id="deliveroo-month-filter-list" style="
+                        max-height: 200px;
+                        overflow-y: auto;
+                        background: #f9f9f9;
+                        border-radius: 8px;
+                        padding: 12px;
+                        margin-bottom: 8px;
+                    ">
+                        <div style="color: #999; font-size: 13px; text-align: center; padding: 20px;">
+                            Loading months...
+                        </div>
+                    </div>
+                    <div id="deliveroo-filter-count" style="
+                        font-size: 13px;
+                        color: #666;
+                        padding: 8px;
+                        background: #e3f2fd;
+                        border-radius: 6px;
+                        text-align: center;
+                    ">0 orders selected</div>
+                </div>
                 <div style="margin-bottom: 20px;" id="deliveroo-folder-section">
                     <div style="font-size: 14px; color: #666; margin-bottom: 8px;">Save Location</div>
                     <div id="deliveroo-folder-status" style="
@@ -221,9 +244,154 @@
     let directoryHandle = null;
     let selectedFolderPath = null;
     
+    // Orders data storage
+    let ordersWithDates = [];
+    let selectedMonths = new Set();
+    
     // Folder selection handler
     const selectFolderBtn = document.getElementById('deliveroo-select-folder');
     const folderStatus = document.getElementById('deliveroo-folder-status');
+    
+    // Extract orders with dates from the page
+    function extractOrdersWithDates() {
+        const orderElements = Array.from(document.querySelectorAll('li[class*="OrderList-"]'));
+        const orders = [];
+        
+        orderElements.forEach(li => {
+            // Find order link
+            const orderLink = li.querySelector('a[href*="/orders/"]');
+            if (!orderLink) return;
+            
+            const href = orderLink.getAttribute('href');
+            const orderId = href.match(/\/orders\/(\d+)/)?.[1];
+            if (!orderId) return;
+            
+            // Find date text - look for pattern like "04 January 2026"
+            const textElements = li.querySelectorAll('p');
+            let dateText = null;
+            
+            for (const p of textElements) {
+                const text = p.textContent || p.innerText;
+                // Look for date pattern: day month year (e.g., "04 January 2026")
+                const dateMatch = text.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
+                if (dateMatch) {
+                    dateText = text.match(/(\d{1,2}\s+\w+\s+\d{4})/)?.[0];
+                    if (dateText) break;
+                }
+            }
+            
+            if (dateText) {
+                try {
+                    // Parse date - format like "04 January 2026"
+                    const date = new Date(dateText);
+                    if (!isNaN(date.getTime())) {
+                        const month = date.getMonth(); // 0-11
+                        const year = date.getFullYear();
+                        const monthKey = `${year}-${(month + 1).toString().padStart(2, '0')}`;
+                        
+                        orders.push({
+                            orderId,
+                            date,
+                            month,
+                            year,
+                            monthKey,
+                            dateText
+                        });
+                    }
+                } catch (e) {
+                    console.warn(`Could not parse date for order ${orderId}:`, dateText);
+                }
+            }
+        });
+        
+        return orders;
+    }
+    
+    // Build month filter UI
+    function buildMonthFilterUI(orders) {
+        // Get unique months
+        const monthMap = new Map();
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                           'July', 'August', 'September', 'October', 'November', 'December'];
+        
+        orders.forEach(order => {
+            if (!monthMap.has(order.monthKey)) {
+                monthMap.set(order.monthKey, {
+                    key: order.monthKey,
+                    month: order.month,
+                    year: order.year,
+                    monthName: monthNames[order.month],
+                    count: 0
+                });
+            }
+            monthMap.get(order.monthKey).count++;
+        });
+        
+        // Sort by year (desc), then month (desc) - most recent first
+        const months = Array.from(monthMap.values()).sort((a, b) => {
+            if (b.year !== a.year) return b.year - a.year;
+            return b.month - a.month;
+        });
+        
+        // Build checkbox list
+        const filterList = document.getElementById('deliveroo-month-filter-list');
+        filterList.innerHTML = '';
+        
+        if (months.length === 0) {
+            filterList.innerHTML = '<div style="color: #999; font-size: 13px; text-align: center; padding: 20px;">No dates found in orders</div>';
+            return;
+        }
+        
+        months.forEach(monthInfo => {
+            const label = document.createElement('label');
+            label.style.cssText = 'display: flex; align-items: center; padding: 8px; cursor: pointer; border-radius: 4px; margin-bottom: 4px;';
+            label.onmouseover = function() { this.style.background = '#f0f0f0'; };
+            label.onmouseout = function() { this.style.background = 'transparent'; };
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = monthInfo.key;
+            checkbox.style.cssText = 'margin-right: 8px; cursor: pointer;';
+            checkbox.onchange = function() {
+                updateSelectedMonths();
+            };
+            
+            const text = document.createElement('span');
+            text.style.cssText = 'flex: 1; font-size: 14px; color: #333;';
+            text.textContent = `${monthInfo.monthName} ${monthInfo.year} (${monthInfo.count} orders)`;
+            
+            label.appendChild(checkbox);
+            label.appendChild(text);
+            filterList.appendChild(label);
+        });
+    }
+    
+    // Update selected months and count
+    function updateSelectedMonths() {
+        const checkboxes = document.querySelectorAll('#deliveroo-month-filter-list input[type="checkbox"]');
+        selectedMonths.clear();
+        
+        checkboxes.forEach(cb => {
+            if (cb.checked) {
+                selectedMonths.add(cb.value);
+            }
+        });
+        
+        // Count filtered orders
+        const filteredCount = ordersWithDates.filter(order => selectedMonths.has(order.monthKey)).length;
+        const countDiv = document.getElementById('deliveroo-filter-count');
+        countDiv.textContent = `${filteredCount} order${filteredCount !== 1 ? 's' : ''} selected`;
+    }
+    
+    // Filter orders by selected months
+    function getFilteredOrderIds() {
+        if (selectedMonths.size === 0) {
+            return [];
+        }
+        return ordersWithDates
+            .filter(order => selectedMonths.has(order.monthKey))
+            .map(order => order.orderId);
+    }
     
     async function selectFolder() {
         if (!hasFileSystemAccess) {
@@ -300,26 +468,14 @@
             URL.revokeObjectURL(url);
         }
         
-        // Find all order links - use /orders/ pattern (not /en/orders/)
-    const orderLinks = Array.from(document.querySelectorAll('a[href*="/orders/"]'))
-        .map(link => {
-            const href = link.getAttribute('href');
-            return href.startsWith('http') 
-                ? href 
-                : `https://deliveroo.fr${href.startsWith('/') ? href : '/' + href}`;
-        })
-        .filter((url, index, self) => self.indexOf(url) === index);
-    
-        // Extract order IDs
-        const orderIds = orderLinks
-            .map(url => url.match(/\/orders\/(\d+)/)?.[1])
-            .filter(Boolean)
-            .filter((id, index, self) => self.indexOf(id) === index); // Remove duplicates
+        // Get filtered order IDs based on selected months
+        const orderIds = getFilteredOrderIds();
         
-        console.log(`📋 Found ${orderIds.length} unique orders`);
+        console.log(`📋 Filtered to ${orderIds.length} orders for selected months`);
         
         if (orderIds.length === 0) {
-            console.warn('⚠️  No order IDs found. Make sure you are on the orders page and logged in.');
+            console.warn('⚠️  No orders selected. Please select at least one month.');
+            alert('No orders selected. Please select at least one month to download receipts.');
             return;
         }
         
@@ -587,8 +743,20 @@
     // Handle start downloads button
     const startBtn = document.getElementById('deliveroo-start-downloads');
     startBtn.onclick = async function() {
+        // Check if months are selected
+        if (selectedMonths.size === 0) {
+            alert('Please select at least one month to download receipts.');
+            return;
+        }
         await startDownloads();
     };
+    
+    // Extract orders and build filter UI on script start
+    ordersWithDates = extractOrdersWithDates();
+    if (ordersWithDates.length > 0) {
+        buildMonthFilterUI(ordersWithDates);
+        updateSelectedMonths();
+    }
     
     // If File System API not available, show start button immediately
     if (!hasFileSystemAccess) {
