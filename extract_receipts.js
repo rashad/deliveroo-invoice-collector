@@ -731,6 +731,18 @@
         };
     }
     
+    // Show completion alert
+    let alertMessage = '';
+    if (downloadedFiles.length > 0 && failedOrders.length === 0) {
+        alertMessage = `✅ Success!\n\nSuccessfully downloaded ${downloadedFiles.length} receipt${downloadedFiles.length !== 1 ? 's' : ''}.\n\nFiles saved to: ${directoryHandle ? selectedFolderPath : 'your default download folder'}`;
+    } else if (downloadedFiles.length > 0 && failedOrders.length > 0) {
+        alertMessage = `⚠️ Partial Success\n\nDownloaded: ${downloadedFiles.length} receipt${downloadedFiles.length !== 1 ? 's' : ''}\nFailed: ${failedOrders.length} receipt${failedOrders.length !== 1 ? 's' : ''}\n\nFiles saved to: ${directoryHandle ? selectedFolderPath : 'your default download folder'}`;
+    } else {
+        alertMessage = `❌ No Downloads\n\nNo receipts were downloaded.\n\nPlease check the console for details.`;
+    }
+    
+    alert(alertMessage);
+    
         window.deliverooDownloads = downloadedFiles;
         return downloadedFiles;
     }
