@@ -30,11 +30,30 @@
             
             if (email && email.includes('@')) {
                 GM_setValue('deliveroo_user_email', email);
-                alert('✅ Email saved! You can change it later in the script settings.');
+                alert('✅ Email saved! You can change it later using the "Change Email" button.');
                 resolve(email);
             } else if (email) {
                 alert('⚠️ Invalid email address. Please try again.');
                 resolve(getOrPromptEmail());
+            } else {
+                resolve(null);
+            }
+        });
+    }
+    
+    // Change email function
+    function changeEmail() {
+        return new Promise((resolve) => {
+            const currentEmail = GM_getValue('deliveroo_user_email', '');
+            const newEmail = prompt('📧 Enter your new email address:', currentEmail);
+            
+            if (newEmail && newEmail.includes('@')) {
+                GM_setValue('deliveroo_user_email', newEmail);
+                alert('✅ Email updated successfully!');
+                resolve(newEmail);
+            } else if (newEmail) {
+                alert('⚠️ Invalid email address. Please enter a valid email.');
+                resolve(null);
             } else {
                 resolve(null);
             }
@@ -94,8 +113,11 @@
     }
 
     // Main download script (wrapped in function)
-    async function startDownloadScript(userEmail) {
+    async function startDownloadScript(initialEmail) {
         console.log('🚀 Starting Deliveroo receipt PDF download...');
+        
+        // Store email in a way that can be updated
+        let userEmail = initialEmail;
         
         // Create UI overlay
         const uiContainer = document.createElement('div');
@@ -218,6 +240,31 @@
                             text-align: center;
                         ">0 orders selected</div>
                     </div>
+                    <div style="margin-bottom: 20px;" id="deliveroo-email-settings-section">
+                        <div style="font-size: 14px; color: #666; margin-bottom: 8px;">Email Settings</div>
+                        <div id="deliveroo-email-display" style="
+                            font-size: 14px;
+                            color: #333;
+                            padding: 12px;
+                            background: #e8f5e9;
+                            border-radius: 8px;
+                            margin-bottom: 8px;
+                        ">
+                            <div style="margin-bottom: 4px;"><strong>Current Email:</strong></div>
+                            <div id="deliveroo-current-email" style="word-break: break-all;">Loading...</div>
+                        </div>
+                        <button id="deliveroo-change-email-btn" style="
+                            width: 100%;
+                            padding: 10px;
+                            background: #f5f5f5;
+                            color: #333;
+                            border: 1px solid #ddd;
+                            border-radius: 8px;
+                            font-size: 13px;
+                            font-weight: 500;
+                            cursor: pointer;
+                        ">✏️ Change Email</button>
+                    </div>
                     <div style="margin-bottom: 20px;" id="deliveroo-folder-section">
                         <div style="font-size: 14px; color: #666; margin-bottom: 8px;">Save Location</div>
                         <div id="deliveroo-folder-status" style="
@@ -320,6 +367,31 @@
         document.getElementById('deliveroo-downloader-close').onclick = function() {
             uiContainer.style.display = 'none';
         };
+        
+        // Update email display
+        function updateEmailDisplay() {
+            const storedEmail = GM_getValue('deliveroo_user_email', null);
+            const emailDisplay = document.getElementById('deliveroo-current-email');
+            if (storedEmail) {
+                emailDisplay.textContent = storedEmail;
+                emailDisplay.style.color = '#2e7d32';
+            } else {
+                emailDisplay.textContent = 'Not set';
+                emailDisplay.style.color = '#c62828';
+            }
+        }
+        
+        // Change email button handler
+        document.getElementById('deliveroo-change-email-btn').onclick = async function() {
+            const newEmail = await changeEmail();
+            if (newEmail) {
+                userEmail = newEmail; // Update the current session email
+                updateEmailDisplay();
+            }
+        };
+        
+        // Initialize email display
+        updateEmailDisplay();
         
         // File System Access API support check
         const hasFileSystemAccess = 'showDirectoryPicker' in window;
