@@ -3,13 +3,13 @@
 // @namespace    http://tampermonkey.net/
 // @version      1.0.0
 // @description  Download all Deliveroo receipt PDFs with month filtering and email integration
-// @author       You
+// @author       Rashad Karanouh
 // @match        https://deliveroo.fr/en/orders*
 // @match        https://deliveroo.fr/orders*
 // @grant        GM_setValue
 // @grant        GM_getValue
-// @updateURL    https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/deliveroo-receipts.user.js
-// @downloadURL  https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/deliveroo-receipts.user.js
+// @updateURL    https://github.com/rashad/deliveroo-invoice-collector/raw/refs/heads/main/deliveroo-receipts.user.js
+// @downloadURL  https://github.com/rashad/deliveroo-invoice-collector/raw/refs/heads/main/deliveroo-receipts.user.js
 // ==/UserScript==
 
 (function() {
