@@ -1,8 +1,28 @@
 # Deliveroo Invoice Collector
 
-A browser console script to automatically download all receipt PDFs from your Deliveroo orders page.
+A script to automatically download all receipt PDFs from your Deliveroo orders page with month filtering and email integration.
 
-## Usage
+## Two Ways to Use
+
+### Option 1: Tampermonkey Userscript (Recommended) ⭐
+
+**Easiest and most convenient way to use the script.**
+
+1. Install [Tampermonkey](https://www.tampermonkey.net/) extension
+2. Follow the setup guide in [TAMPERMONKEY_SETUP.md](./TAMPERMONKEY_SETUP.md)
+3. Go to `https://deliveroo.fr/en/orders`
+4. Click the "📥 Download Receipts" button that appears
+5. Follow the on-screen instructions
+
+**Benefits:**
+- One-click activation (no console needed)
+- Auto-updates from GitHub
+- Email stored securely in browser
+- Works across browser sessions
+
+### Option 2: Browser Console (Manual)
+
+**For one-time use or testing.**
 
 1. Navigate to [https://deliveroo.fr/en/orders](https://deliveroo.fr/en/orders)
 2. Make sure you are logged in
@@ -15,17 +35,26 @@ A browser console script to automatically download all receipt PDFs from your De
 6. Wait for the script to complete (it will process each order and download PDFs)
 7. Check your browser's download folder for the PDF files
 
-## What It Does
+## Features
 
-1. Finds all order links on the orders page
-2. For each order, extracts the receipt URL
-3. Downloads the receipt PDF file
-4. Saves files with names like `deliveroo_receipt_{receipt_id}_{timestamp}.pdf`
+- 📅 **Month Filtering**: Select specific months to download (avoid re-downloading everything)
+- 📁 **Folder Selection**: Save all receipts to a single folder (Chrome/Edge only)
+- 📧 **Email Integration**: Automatically open Gmail with pre-filled email
+- 🔒 **Privacy**: Email address stored securely in browser (not in code)
+- 📊 **Progress Tracking**: Real-time UI showing download progress
+- ✅ **Smart Filtering**: Only downloads receipts for selected months
+
+## Files
+
+- `deliveroo-receipts.user.js` - Tampermonkey userscript (recommended)
+- `extract_receipts.js` - Console script (for manual use)
+- `TAMPERMONKEY_SETUP.md` - Detailed setup instructions for Tampermonkey
 
 ## Output
 
-- PDF files are automatically downloaded to your browser's default download folder
-- Console shows progress and completion status
+- PDF files are automatically downloaded to selected folder or default download folder
+- Real-time UI shows progress and completion status
+- Email button opens Gmail with pre-filled message
 - Download information is stored in `window.deliverooDownloads`
 
 ## Order and Receipt URL Formats
