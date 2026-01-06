@@ -8,8 +8,8 @@
 // @match        https://deliveroo.fr/orders*
 // @grant        GM_setValue
 // @grant        GM_getValue
-// @updateURL    https://github.com/rashad/deliveroo-invoice-collector/raw/refs/heads/main/deliveroo-receipts.user.js
-// @downloadURL  https://github.com/rashad/deliveroo-invoice-collector/raw/refs/heads/main/deliveroo-receipts.user.js
+// @updateURL    https://raw.githubusercontent.com/rashad/deliveroo-invoice-collector/main/deliveroo-receipts.user.js
+// @downloadURL  https://raw.githubusercontent.com/rashad/deliveroo-invoice-collector/main/deliveroo-receipts.user.js
 // ==/UserScript==
 
 (function() {
