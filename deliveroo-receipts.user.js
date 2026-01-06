@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Deliveroo Receipts Downloader
 // @namespace    http://tampermonkey.net/
-// @version      1.0.0
+// @version      1.0.1
 // @description  Download all Deliveroo receipt PDFs with month filtering and email integration
 // @author       Rashad Karanouh
 // @match        https://deliveroo.fr/en/orders*
